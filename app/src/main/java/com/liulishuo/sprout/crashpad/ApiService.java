@@ -14,4 +14,9 @@ public interface ApiService {
     @Multipart
     @POST("/api/5536234/minidump/")
     Call<ResponseBody> uploadFile(@Part MultipartBody.Part tag, @Part MultipartBody.Part minidump, @Part MultipartBody.Part attachment, @Query("sentry_key") String sentry_key);
+
+
+    @Multipart
+    @POST("/api/5536234/minidump/")
+    Call<ResponseBody> uploadFile(@Part MultipartBody.Part minidump, @Query("sentry_key") String sentry_key);
 }

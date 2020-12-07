@@ -7,7 +7,7 @@ class FileHelper(context: Context) {
 
     val context = context
 
-    val rootPath = "/data/data/${context.packageName}/crashpad/"
+    val rootPath = context.getDir("crashpad", Context.MODE_PRIVATE).toString()
 
     fun parseFileName(it: String): String {
         val index = it.indexOf(".")
@@ -16,11 +16,31 @@ class FileHelper(context: Context) {
     }
 
     fun getMinidumpFileRootPath(): String {
-        return rootPath + "completed"
+        return rootPath + File.separator + "completed"
+    }
+
+    fun getMetaFilePath(fileName: String): String {
+        return StringBuffer(rootPath)
+            .append(File.separator)
+            .append("completed")
+            .append(File.separator)
+            .append(fileName)
+            .append(".meta")
+            .toString()
+    }
+
+    fun getAttachmentFileParentPath(fileName: String): String {
+        return StringBuffer(rootPath)
+            .append(File.separator)
+            .append("attachments")
+            .append(File.separator)
+            .append(fileName)
+            .toString()
     }
 
     fun getAttachmentFilePath(fileName: String): String {
         return StringBuffer(rootPath)
+            .append(File.separator)
             .append("attachments")
             .append(File.separator)
             .append(fileName)
@@ -31,6 +51,7 @@ class FileHelper(context: Context) {
 
     fun getMinidumpFilePath(fileName: String): String {
         return StringBuffer(rootPath)
+            .append(File.separator)
             .append("completed")
             .append(File.separator)
             .append(fileName)

@@ -10,6 +10,26 @@ using namespace base;
 using namespace crashpad;
 using namespace std;
 
+std::string jstring2string(JNIEnv *env, jstring jStr) {
+    if (!jStr)
+        return "";
+
+    const jclass stringClass = env->GetObjectClass(jStr);
+    const jmethodID getBytes = env->GetMethodID(stringClass, "getBytes", "(Ljava/lang/String;)[B");
+    const jbyteArray stringJbytes = (jbyteArray) env->CallObjectMethod(jStr, getBytes, env->NewStringUTF("UTF-8"));
+
+    size_t length = (size_t) env->GetArrayLength(stringJbytes);
+    jbyte* pBytes = env->GetByteArrayElements(stringJbytes, NULL);
+
+    std::string ret = std::string((char *)pBytes, length);
+    env->ReleaseByteArrayElements(stringJbytes, pBytes, JNI_ABORT);
+
+    env->DeleteLocalRef(stringJbytes);
+    env->DeleteLocalRef(stringClass);
+    return ret;
+}
+
+
 void crash() {
     *(volatile int *) 0 = 0;
 }
@@ -17,14 +37,16 @@ void crash() {
 extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_liulishuo_sprout_crashpad_SproutCrashManager_initializeCrashpad(JNIEnv *env, jobject thiz,
-                                                                         jstring handler_path) {
-    string dataDir = "/data/data/com.example.androidcrasher";
+                                                                         jstring handler_path,
+                                                                         jstring dir) {
+    string dataDir = jstring2string(env,dir);
 
     const char *handlerPath = env->GetStringUTFChars(handler_path, 0);
+//    const char *dataDir = env->GetStringUTFChars(dir, 0);
     // Crashpad file paths
     FilePath handler(handlerPath);
-    FilePath reportsDir(dataDir + "/crashpad");
-    FilePath metricsDir(dataDir + "/crashpad");
+    FilePath reportsDir(dataDir);
+    FilePath metricsDir(dataDir);
 
     string url = "http://fred.bugsplat.com/post/bp/crash/crashpad.php";//
 
@@ -53,7 +75,7 @@ Java_com_liulishuo_sprout_crashpad_SproutCrashManager_initializeCrashpad(JNIEnv 
 
     // File paths of attachments to be uploaded with the minidump file at crash time - default bundle limit is 2MB
     vector<FilePath> attachments;
-    FilePath attachment(dataDir + "/files/attachment.txt");
+    FilePath attachment(dataDir + "/attachment.txt");
     attachments.push_back(attachment);
 
     // Start Crashpad crash handler
@@ -64,7 +86,11 @@ Java_com_liulishuo_sprout_crashpad_SproutCrashManager_initializeCrashpad(JNIEnv 
     env->ReleaseStringUTFChars(handler_path, handlerPath);
     return status;
 
-}extern "C"
+}
+
+
+
+extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_liulishuo_sprout_crashpad_SproutCrashManager_crash(JNIEnv *env, jobject thiz) {
     crash();

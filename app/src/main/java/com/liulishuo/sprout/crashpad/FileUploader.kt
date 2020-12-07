@@ -9,6 +9,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.File
 import java.io.FileReader
+import java.io.IOException
 import java.security.KeyManagementException
 import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
@@ -16,11 +17,28 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.*
 
 object FileUploader {
+
+    var url: String? = null
+    var sentryKey: String? = null
+    var fileHelper: FileHelper? = null
+
+    fun init(url: String, sentryKey: String, fileHelper: FileHelper) {
+        this.url = url
+        this.sentryKey = sentryKey
+        this.fileHelper = fileHelper
+    }
+
+
     fun uploadFile(minidumpStr: String, attachmentStr: String) {
+
+        if (!File(minidumpStr).exists()) {
+            return
+        }
+
         val client = getOkHttpClient()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("https://o482556.ingest.sentry.io")
+            .baseUrl(url)
             .addConverterFactory(GsonConverterFactory.create())
             .client(client)
             .build()
@@ -33,55 +51,87 @@ object FileUploader {
         val attachmentPart =
             createAttachmentPart(attachmentStr)
 
+        var annotation: String? = null
         val attach = File(attachmentStr)
         val reader = FileReader(attach)
+
+        try {
+            annotation = reader.readText()
+            reader.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+
+
         val tagPart =
-            MultipartBody.Part.createFormData("sentry", reader.readText())
-        
-        reader.close()
-        val call =
+            MultipartBody.Part.createFormData("sentry", annotation ?: "")
+
+        val call = if (attach.exists())
             apiService.uploadFile(
                 tagPart,
                 minidumpPart,
                 attachmentPart,
-                "831426a7a35e4ed1817c6701cee85876"
-            )
+                sentryKey
+            ) else apiService.uploadFile(
+            minidumpPart,
+            sentryKey
+        )
 
         val response = call.execute()
-
         if (response.isSuccessful) {
             Log.i("kevin", response.body().toString())
-            File(minidumpStr).delete()
+            deleteUploadCompletedFile(minidumpStr)
         } else {
             Log.i("kevin", response.errorBody().toString())
+        }
+
+
+    }
+
+    private fun deleteUploadCompletedFile(minidumpStr: String) {
+
+        try {
+            fileHelper?.let {
+                val fileName = it.parseFileName(File(minidumpStr).name)
+                File(it.getMetaFilePath(fileName)).delete()
+                val attachmentParent = File(it.getAttachmentFileParentPath(fileName))
+                attachmentParent?.deleteRecursively()
+            }
+            File(minidumpStr).delete()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        } catch (e: SecurityException) {
+            e.printStackTrace()
         }
     }
 
 
-    fun createAttachmentPart(attachmentStr: String): MultipartBody.Part {
+    private fun createAttachmentPart(attachmentStr: String): MultipartBody.Part? {
         val attachmentFile = File(attachmentStr)
+
+        if (!attachmentFile.exists()) {
+            return null
+        }
+
         val attachmentRequestBody =
             RequestBody.create(MediaType.parse("application/otcet-stream"), attachmentFile)
-        val attachmentPart =
-            MultipartBody.Part.createFormData(
-                "attachment.txt",
-                attachmentFile.name,
-                attachmentRequestBody
-            )
-        return attachmentPart
+        return MultipartBody.Part.createFormData(
+            "attachment.txt",
+            attachmentFile.name,
+            attachmentRequestBody
+        )
     }
 
-    fun createMinidumpPart(minidumpStr: String): MultipartBody.Part {
+    private fun createMinidumpPart(minidumpStr: String): MultipartBody.Part {
         val minidumpFile = File(minidumpStr)
+
         val minidumpRequestBody =
             RequestBody.create(MediaType.parse("application/otcet-stream"), minidumpFile)
-        val minidumpPart =
-            MultipartBody.Part.createFormData(
-                "upload_file_minidump",
-                minidumpFile.name,
-                minidumpRequestBody
-            )
-        return minidumpPart
+        return MultipartBody.Part.createFormData(
+            "upload_file_minidump",
+            minidumpFile.name,
+            minidumpRequestBody
+        )
     }
 
     private fun getOkHttpClient(): OkHttpClient? {

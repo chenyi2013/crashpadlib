@@ -1,12 +1,10 @@
 package com.example.androidcrasher
 
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import com.liulishuo.sprout.crashpad.MonitorCrashService
 import com.liulishuo.sprout.crashpad.SproutCrashManager
 import java.util.*
 
@@ -20,10 +18,14 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        Log.i("kevin","package"+getDir("crashpad1", Context.MODE_PRIVATE).toString())
+//        Log.i("kevin", "package" + getDir("crashpad1", Context.MODE_PRIVATE).toString())
 
-        getDir("crashpad1", Context.MODE_PRIVATE).createNewFile()
-        SproutCrashManager.initializeCrashpad(this)
+//        getDir("crashpad1", Context.MODE_PRIVATE).createNewFile()
+        SproutCrashManager.initializeCrashpad(
+            this,
+            "https://o482556.ingest.sentry.io",
+            "831426a7a35e4ed1817c6701cee85876"
+        )
 
         var annotations = HashMap<String, String>()
         annotations["format"] =
@@ -36,24 +38,21 @@ class MainActivity : AppCompatActivity() {
         annotations["list_annotations"] = "Sample comment"; // Optional: BugSplat crash description
         SproutCrashManager.setExtraData(annotations)
 
-        startService(Intent(this, MonitorCrashService::class.java))
-
-
 
     }
 
     public fun btnCrashClick(view: View) {
-//        SproutCrashManager.crash()
+
         Log.i("kevin", "dir:" + this.applicationContext.applicationInfo.packageName)
-
-        for(i in 0..99){
-            Thread{
-                b(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-            }.start()
-        }
-
-        Thread.sleep(10000)
         SproutCrashManager.crash()
+//        for(i in 0..99){
+//            Thread{
+//                b(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+//            }.start()
+//        }
+//
+//        Thread.sleep(10000)
+//        SproutCrashManager.crash()
 
 //        a(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 
