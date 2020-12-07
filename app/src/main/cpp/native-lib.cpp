@@ -5,34 +5,32 @@
 #include "client/crash_report_database.h"
 #include "client/settings.h"
 
-void stackFrame1(void);
-void stackFrame2(void);
-void stackFrame3(void);
-void crash(void);
 
 using namespace base;
 using namespace crashpad;
 using namespace std;
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_example_androidcrasher_MainActivity_initializeCrashpad(
-        JNIEnv* env,
-        jobject /* this */) {
+void crash() {
+    *(volatile int *) 0 = 0;
+}
 
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_liulishuo_sprout_crashpad_SproutCrashManager_initializeCrashpad(JNIEnv *env, jobject thiz,
+                                                                         jstring handler_path) {
     string dataDir = "/data/data/com.example.androidcrasher";
 
+    const char *handlerPath = env->GetStringUTFChars(handler_path, 0);
     // Crashpad file paths
-    FilePath handler(dataDir + "/lib/libcrashpad_handler.so");
+    FilePath handler(handlerPath);
     FilePath reportsDir(dataDir + "/crashpad");
     FilePath metricsDir(dataDir + "/crashpad");
 
-    // Crashpad upload URL for BugSplat database
-    string url = "http://fred.bugsplat.com/post/bp/crash/crashpad.php";
+    string url = "http://fred.bugsplat.com/post/bp/crash/crashpad.php";//
 
-    // Crashpad annotations
     map<string, string> annotations;
     annotations["format"] = "minidump";           // Required: Crashpad setting to save crash as a minidump
-    annotations["database"] = "fred";             // Required: BugSplat appName
+    annotations["database"] = "252019161_qq_com";             // Required: BugSplat appName
     annotations["product"] = "AndroidCrasher"; // Required: BugSplat appName
     annotations["version"] = "1.0.1";             // Required: BugSplat appVersion
     annotations["key"] = "Samplekey";            // Optional: BugSplat key field
@@ -44,13 +42,14 @@ Java_com_example_androidcrasher_MainActivity_initializeCrashpad(
     arguments.push_back("--no-rate-limit");
 
     // Crashpad local database
-    unique_ptr<CrashReportDatabase> crashReportDatabase = CrashReportDatabase::Initialize(reportsDir);
+    unique_ptr<CrashReportDatabase> crashReportDatabase = CrashReportDatabase::Initialize(
+            reportsDir);
     if (crashReportDatabase == NULL) return false;
 
     // Enable automated crash uploads
     Settings *settings = crashReportDatabase->GetSettings();
     if (settings == NULL) return false;
-    settings->SetUploadsEnabled(true);
+    settings->SetUploadsEnabled(false);
 
     // File paths of attachments to be uploaded with the minidump file at crash time - default bundle limit is 2MB
     vector<FilePath> attachments;
@@ -59,32 +58,15 @@ Java_com_example_androidcrasher_MainActivity_initializeCrashpad(
 
     // Start Crashpad crash handler
     static CrashpadClient *client = new CrashpadClient();
-    bool status = client->StartHandlerAtCrash(handler, reportsDir, metricsDir, url, annotations, arguments, attachments);
+    bool status = client->StartHandlerAtCrash(handler, reportsDir, metricsDir, url, annotations,
+                                              arguments, attachments);
+
+    env->ReleaseStringUTFChars(handler_path, handlerPath);
     return status;
-}
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_example_androidcrasher_MainActivity_crash(
-        JNIEnv* env,
-        jobject /* this */) {
-
-    stackFrame1();
-
-    return true;
-}
-
-void stackFrame1() {
-    stackFrame2();
-}
-
-void stackFrame2() {
-    stackFrame3();
-}
-
-void stackFrame3() {
+}extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_liulishuo_sprout_crashpad_SproutCrashManager_crash(JNIEnv *env, jobject thiz) {
     crash();
-}
-
-void crash() {
-    *(volatile int *)0 = 0;
+    return true;
 }
